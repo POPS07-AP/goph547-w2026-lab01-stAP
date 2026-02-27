@@ -1,47 +1,59 @@
 import numpy as np
 
+
 def gravity_potential_point(x, xm, m, G=6.674e-11):
-    """
-    Compute the gravity potential due to a point mass.
+    """Compute the gravity potential due to a point mass.
 
     Parameters
     ----------
-    x : array_like, shape (3,)
-        Survey point coordinates [x, y, z]
-    xm : array_like, shape (3,)
-        Point mass coordinates
+    x : array_like, shape=(3,)
+        Coordinates of survey point.
+    xm : array_like, shape=(3,)
+        Coordinates of point mass anomaly.
     m : float
-        Mass of anomaly
-    G : float
-        Gravitational constant
+        Mass of the anomaly.
+    G : float, optional, default=6.674e-11
+        Constant of gravitation.
+        Default in SI units.
+        Allows user to modify if using different unit.
 
     Returns
     -------
     float
-        Gravity potential at x
+        Gravity potential at x due to anomaly at xm.
     """
-    x = np.asarray(x, dtype=float)
-    xm = np.asarray(xm, dtype=float)
+    x = np.array(x, dtype=float).flatten()
+    xm = np.array(xm, dtype=float).flatten()
+    m = float(m)
+    G = float(G)
     r = np.linalg.norm(x - xm)
-
-    if r == 0:
-        raise ValueError("Survey point cannot coincide with mass location.")
-
-    return -G * m / r
+    return G * m / r
 
 
 def gravity_effect_point(x, xm, m, G=6.674e-11):
+    """Compute the vertical gravity effect due to a point mass (positive downward).
+
+    Parameters
+    ----------
+    x : array_like, shape=(3,)
+        Coordinates of survey point.
+    xm : array_like, shape=(3,)
+        Coordinates of point mass anomaly.
+    m : float
+        Mass of the anomaly.
+    G : float, optional, default=6.674e-11
+        Constant of gravitation.
+        Default in SI units.
+        Allows user to modify if using different unit.
+
+    Returns
+    -------
+    float
+        Gravity effect at x due to anomaly at xm.
     """
-    Compute vertical gravity effect (positive downward)
-    """
-    x = np.asarray(x, dtype=float)
-    xm = np.asarray(xm, dtype=float)
-
-    dx = x - xm
-    r = np.linalg.norm(dx)
-
-    if r == 0:
-        raise ValueError("Survey point cannot coincide with mass location.")
-
-    gz = G * m * dx[2] / r**3   # vertical component
-    return gz
+    x = np.array(x, dtype=float).flatten()
+    xm = np.array(xm, dtype=float).flatten()
+    m = float(m)
+    G = float(G)
+    r = np.linalg.norm(x - xm)
+    return G * m * (x[2] - xm[2]) / r**3

@@ -1,128 +1,191 @@
-"""
-Driver script for single mass anomaly analysis.
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
-import os
 
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../src'))
-
-from goph547lab01.gravity import gravity_potential_point, gravity_effect_point
-
-
-def create_plots(grid_spacing=5.0):
-    """
-    Create contour plots for single mass anomaly.
-
-    Parameters
-    ----------
-    grid_spacing : float
-        Grid spacing in meters.
-    """
-
-    # Mass parameters
-    m = 1.0e7  # 10 million kg
-    xm = np.array([0.0, 0.0, -10000.0])  # Centroid at 10km depth
-
-    # Grid parameters
-    x_min, x_max = -100.0, 100.0
-    y_min, y_max = -100.0, 100.0
-
-    # Create grid
-    x = np.arange(x_min, x_max + grid_spacing, grid_spacing)
-    y = np.arange(y_min, y_max + grid_spacing, grid_spacing)
-    X, Y = np.meshgrid(x, y)
-
-    # Elevations to plot
-    elevations = [0.0, 10.0, 100.0]
-
-    # Create figure
-    fig, axes = plt.subplots(3, 2, figsize=(12, 15))
-    fig.suptitle(f'Single Mass Anomaly (m={m:.1e} kg, grid spacing={grid_spacing}m)',
-                 fontsize=14, y=0.98)
-
-    # Initialize min/max for consistent colorbars
-    U_min, U_max = float('inf'), float('-inf')
-    gz_min, gz_max = float('inf'), float('-inf')
-
-    # Pre-calculate to get consistent colorbar limits
-    U_data = {}
-    gz_data = {}
-
-    for z in elevations:
-        U_grid = np.zeros_like(X)
-        gz_grid = np.zeros_like(X)
-
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                survey_point = [X[i, j], Y[i, j], z]
-                U_grid[i, j] = gravity_potential_point(survey_point, xm, m)
-                gz_grid[i, j] = gravity_effect_point(survey_point, xm, m)
-
-        U_data[z] = U_grid
-        gz_data[z] = gz_grid
-
-        U_min = min(U_min, U_grid.min())
-        U_max = max(U_max, U_grid.max())
-        gz_min = min(gz_min, gz_grid.min())
-        gz_max = max(gz_max, gz_grid.max())
-
-    # Create plots
-    for idx, z in enumerate(elevations):
-        # Potential plot
-        ax1 = axes[idx, 0]
-        contour1 = ax1.contourf(X, Y, U_data[z], 50, cmap='viridis',
-                                vmin=U_min, vmax=U_max)
-        ax1.scatter(X.flatten(), Y.flatten(), marker='x', color='black',
-                    s=2, alpha=0.5, label='Grid points')
-        ax1.set_title(f'Gravity Potential at z={z}m')
-        ax1.set_xlabel('x [m]')
-        ax1.set_ylabel('y [m]')
-        ax1.set_aspect('equal')
-        ax1.grid(True, alpha=0.3)
-
-        # Add colorbar to first plot only
-        if idx == 0:
-            plt.colorbar(contour1, ax=ax1, label='Potential [m²/s²]')
-
-        # Gravity effect plot
-        ax2 = axes[idx, 1]
-        contour2 = ax2.contourf(X, Y, gz_data[z], 50, cmap='plasma',
-                                vmin=gz_min, vmax=gz_max)
-        ax2.scatter(X.flatten(), Y.flatten(), marker='x', color='black',
-                    s=2, alpha=0.5, label='Grid points')
-        ax2.set_title(f'Gravity Effect at z={z}m')
-        ax2.set_xlabel('x [m]')
-        ax2.set_ylabel('y [m]')
-        ax2.set_aspect('equal')
-        ax2.grid(True, alpha=0.3)
-
-        # Add colorbar to first plot only
-        if idx == 0:
-            plt.colorbar(contour2, ax=ax2, label='g_z [m/s²]')
-
-    plt.tight_layout()
-
-    # Save figure
-    filename = f'single_mass_grid_{int(grid_spacing)}m.png'
-    plt.savefig(filename, dpi=300, bbox_inches='tight')
-    print(f"Saved plot as {filename}")
-
-    plt.show()
+from goph547lab01.gravity import (
+    gravity_potential_point,
+    gravity_effect_point,
+)
 
 
 def main():
-    """Main function."""
-    print("Generating plots for single mass anomaly...")
+    # properties of mass anomaly
+    m = 1.0e7  # mass, in kg
+    xm = np.array((0.0, 0.0, -10.0))  # position of mass, in m
 
-    # Create plots for both grid spacings
-    for spacing in [5.0, 25.0]:
-        create_plots(grid_spacing=spacing)
+    # survey grids
+    x_25, y_25 = np.meshgrid(
+        np.linspace(-100.0, 100.0, 9), np.linspace(-100.0, 100.0, 9)
+    )
+    x_5, y_5 = np.meshgrid(
+        np.linspace(-100.0, 100.0, 41), np.linspace(-100.0, 100.0, 41)
+    )
+    zp = [0.0, 10.0, 100.0]
 
-    print("Analysis complete!")
+    # survey at 25 m grid spacing
+    U_25 = np.zeros((x_25.shape[0], x_25.shape[1], len(zp)))
+    g_25 = np.zeros((x_25.shape[0], x_25.shape[1], len(zp)))
+    xs = x_25[0, :]
+    ys = y_25[:, 0]
+    Us = U_25
+    gs = g_25
+    for k, zz in enumerate(zp):
+        for j, xx in enumerate(xs):
+            for i, yy in enumerate(ys):
+                x = [xx, yy, zz]
+                Us[i, j, k] = gravity_potential_point(x, xm, m)
+                gs[i, j, k] = gravity_effect_point(x, xm, m)
+
+    # survey at 5 m grid spacing
+    U_5 = np.zeros((x_5.shape[0], x_5.shape[1], len(zp)))
+    g_5 = np.zeros((x_5.shape[0], x_5.shape[1], len(zp)))
+    xs = x_5[0, :]
+    ys = y_5[:, 0]
+    Us = U_5
+    gs = g_5
+    for k, zz in enumerate(zp):
+        for j, xx in enumerate(xs):
+            for i, yy in enumerate(ys):
+                x = [xx, yy, zz]
+                Us[i, j, k] = gravity_potential_point(x, xm, m)
+                gs[i, j, k] = gravity_effect_point(x, xm, m)
+
+    # generate plots of gravity potential and gravity effect, grid 25.0 m
+    fig = plt.figure(figsize=(8, 8))
+    Umin = 0.0
+    Umax = 8.0e-5  # for colorbar limits
+    gmin = 0.0
+    gmax = 7.0e-6
+
+    fig.suptitle("m = 1.0e7 kg, zm = -10 m, xy_grid = 25.0 m", weight="bold")
+
+    # gravity potential, U
+    plt.subplot(3, 2, 1)
+    plt.contourf(
+        x_25, y_25, U_25[:, :, 0], cmap="viridis_r", levels=np.linspace(Umin, Umax, 500)
+    )
+    plt.plot(x_25, y_25, "xk", markersize=2)
+    cbar = plt.colorbar(ticks=np.linspace(Umin, Umax, 5))
+    plt.ylabel("y [m]")
+    cbar.set_label(r"U [$m^2/s^2$]")
+    plt.text(-90, 70, "z = 0.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    plt.subplot(3, 2, 3)
+    plt.contourf(
+        x_25, y_25, U_25[:, :, 1], cmap="viridis_r", levels=np.linspace(Umin, Umax, 500)
+    )
+    plt.plot(x_25, y_25, "xk", markersize=2)
+    cbar = plt.colorbar(ticks=np.linspace(Umin, Umax, 5))
+    plt.ylabel("y [m]")
+    cbar.set_label(r"U [$m^2/s^2$]")
+    plt.text(-90, 70, "z = 10.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    plt.subplot(3, 2, 5)
+    plt.contourf(
+        x_25, y_25, U_25[:, :, 2], cmap="viridis_r", levels=np.linspace(Umin, Umax, 500)
+    )
+    plt.plot(x_25, y_25, "xk", markersize=2)
+    cbar = plt.colorbar(ticks=np.linspace(Umin, Umax, 5))
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    cbar.set_label(r"U [$m^2/s^2$]")
+    plt.text(-90, 70, "z = 100.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    # gravity effect, gz
+    plt.subplot(3, 2, 2)
+    plt.contourf(
+        x_25, y_25, g_25[:, :, 0], cmap="viridis_r", levels=np.linspace(gmin, gmax, 500)
+    )
+    plt.plot(x_25, y_25, "xk", markersize=2)
+    cbar = plt.colorbar(ticks=np.linspace(gmin, gmax, 5))
+    cbar.set_label(r"g [$m/s^2$]")
+    plt.text(-90, 70, "z = 0.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    plt.subplot(3, 2, 4)
+    plt.contourf(
+        x_25, y_25, g_25[:, :, 1], cmap="viridis_r", levels=np.linspace(gmin, gmax, 500)
+    )
+    plt.plot(x_25, y_25, "xk", markersize=2)
+    cbar = plt.colorbar(ticks=np.linspace(gmin, gmax, 5))
+    cbar.set_label(r"g [$m/s^2$]")
+    plt.text(-90, 70, "z = 10.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    plt.subplot(3, 2, 6)
+    plt.contourf(
+        x_25, y_25, g_25[:, :, 2], cmap="viridis_r", levels=np.linspace(gmin, gmax, 500)
+    )
+    plt.plot(x_25, y_25, "xk", markersize=2)
+    cbar = plt.colorbar(ticks=np.linspace(gmin, gmax, 5))
+    cbar.set_label(r"g [$m/s^2$]")
+    plt.text(-90, 70, "z = 100.0 m", weight="bold", bbox=dict(facecolor="white"))
+    plt.xlabel("x [m]")
+
+    plt.savefig("single_mass_grid_25.png", dpi=300)
+
+    # generate plots of gravity potential and gravity effect, grid 5.0 m
+    fig = plt.figure(figsize=(8, 8))
+    Umin = 0.0
+    Umax = 8.0e-5  # for colorbar limits
+    gmin = 0.0
+    gmax = 7.0e-6
+
+    fig.suptitle("m = 1.0e7 kg, zm = -10 m, xy_grid = 5.0 m", weight="bold")
+
+    # gravity potential, U
+    plt.subplot(3, 2, 1)
+    plt.contourf(
+        x_5, y_5, U_5[:, :, 0], cmap="viridis_r", levels=np.linspace(Umin, Umax, 500)
+    )
+    cbar = plt.colorbar(ticks=np.linspace(Umin, Umax, 5))
+    plt.ylabel("y [m]")
+    cbar.set_label(r"U [$m^2/s^2$]")
+    plt.text(-90, 70, "z = 0.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    plt.subplot(3, 2, 3)
+    plt.contourf(
+        x_5, y_5, U_5[:, :, 1], cmap="viridis_r", levels=np.linspace(Umin, Umax, 500)
+    )
+    cbar = plt.colorbar(ticks=np.linspace(Umin, Umax, 5))
+    plt.ylabel("y [m]")
+    cbar.set_label(r"U [$m^2/s^2$]")
+    plt.text(-90, 70, "z = 10.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    plt.subplot(3, 2, 5)
+    plt.contourf(
+        x_5, y_5, U_5[:, :, 2], cmap="viridis_r", levels=np.linspace(Umin, Umax, 500)
+    )
+    cbar = plt.colorbar(ticks=np.linspace(Umin, Umax, 5))
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    cbar.set_label(r"U [$m^2/s^2$]")
+    plt.text(-90, 70, "z = 100.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    # gravity effect, gz
+    plt.subplot(3, 2, 2)
+    plt.contourf(
+        x_5, y_5, g_5[:, :, 0], cmap="viridis_r", levels=np.linspace(gmin, gmax, 500)
+    )
+    cbar = plt.colorbar(ticks=np.linspace(gmin, gmax, 5))
+    cbar.set_label(r"g [$m/s^2$]")
+    plt.text(-90, 70, "z = 0.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    plt.subplot(3, 2, 4)
+    plt.contourf(
+        x_5, y_5, g_5[:, :, 1], cmap="viridis_r", levels=np.linspace(gmin, gmax, 500)
+    )
+    cbar = plt.colorbar(ticks=np.linspace(gmin, gmax, 5))
+    cbar.set_label(r"g [$m/s^2$]")
+    plt.text(-90, 70, "z = 10.0 m", weight="bold", bbox=dict(facecolor="white"))
+
+    plt.subplot(3, 2, 6)
+    plt.contourf(
+        x_5, y_5, g_5[:, :, 2], cmap="viridis_r", levels=np.linspace(gmin, gmax, 500)
+    )
+    cbar = plt.colorbar(ticks=np.linspace(gmin, gmax, 5))
+    cbar.set_label(r"g [$m/s^2$]")
+    plt.text(-90, 70, "z = 100.0 m", weight="bold", bbox=dict(facecolor="white"))
+    plt.xlabel("x [m]")
+
+    plt.savefig("single_mass_grid_5.png", dpi=300)
 
 
 if __name__ == "__main__":
